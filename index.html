@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>דף עבודה אינטראקטיבי - שיטפון!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;800&display=swap');
+        body {
+            font-family: 'Heebo', sans-serif;
+            background-color: #f0fdfa;
+            color: #0f172a;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background-color: #ef4444;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 9999px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50;
+            opacity: 0;
+        }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        .toast.success { background-color: #10b981; }
+
+        .reading-highlight {
+            background-color: #fef08a;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        /* Memory Game Styles */
+        .memory-card {
+            perspective: 1000px;
+            cursor: pointer;
+            height: 120px;
+        }
+        .memory-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .memory-card.flipped .memory-card-inner {
+            transform: rotateY(180deg);
+        }
+        .memory-card-front, .memory-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 10px;
+            font-weight: 600;
+        }
+        .memory-card-front {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            font-size: 2rem;
+        }
+        .memory-card-back {
+            background-color: white;
+            color: #1e40af;
+            transform: rotateY(180deg);
+            border: 2px solid #bfdbfe;
+        }
+        .memory-card.matched .memory-card-back {
+            background-color: #dcfce7;
+            border-color: #86efac;
+            color: #166534;
+        }
+
+        /* Matching Game Styles */
+        .match-btn {
+            transition: all 0.2s;
+        }
+        .match-btn.selected {
+            background-color: #fef08a;
+            border-color: #eab308;
+            transform: scale(1.02);
+        }
+        .match-btn.matched {
+            background-color: #dcfce7;
+            border-color: #22c55e;
+            color: #15803d;
+            opacity: 0.7;
+            cursor: default;
+            transform: scale(0.98);
+        }
+        .wrong-shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+    </style>
+</head>
+<body class="pb-20">
+
+    <header class="bg-blue-600 text-white p-6 shadow-lg text-center mb-8 rounded-b-3xl max-w-5xl mx-auto">
+        <h1 class="text-4xl font-bold mb-2">שיטפון!</h1>
+        <p class="text-blue-100 text-lg">דף עבודה אינטראקטיבי - קריאה, הבנה ותרגול</p>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 space-y-12">
+        
+        <!-- Text Section -->
+        <section class="bg-white rounded-2xl shadow-xl p-6 md:p-8 border-t-4 border-blue-500">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b pb-4">
+                <h2 class="text-2xl font-bold text-gray-800"><i class="fas fa-book-open text-blue-500 ml-2"></i>הטקסט</h2>
+                <div class="flex flex-wrap gap-2 justify-center">
+                    <button id="toggleNikudBtn" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-semibold transition">
+                        <i class="fas fa-font ml-1"></i> הצג ניקוד
+                    </button>
+                </div>
+            </div>
+
+            <!-- Audio Controls -->
+            <div class="bg-blue-50 rounded-xl p-4 mb-6 flex flex-wrap gap-4 items-center justify-center border border-blue-100">
+                <div class="text-center w-full md:w-auto font-semibold text-blue-800 mb-2 md:mb-0">הקראה אנושית:</div>
+                <button id="playAudioBtn" class="bg-blue-600 hover:bg-blue-700 text-white w-12 h-12 rounded-full flex items-center justify-center transition shadow-md">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button id="stopAudioBtn" class="bg-red-500 hover:bg-red-600 text-white w-12 h-12 rounded-full flex items-center justify-center transition shadow-md hidden">
+                    <i class="fas fa-stop"></i>
+                </button>
+                
+                <div class="flex items-center bg-white rounded-lg p-1 border border-blue-200">
+                    <button id="slowerBtn" class="px-3 py-1 text-gray-600 hover:bg-gray-100 rounded" title="לאט יותר"><i class="fas fa-turtle"></i></button>
+                    <span id="speedDisplay" class="px-2 font-mono text-sm font-bold text-blue-700">1.0x</span>
+                    <button id="fasterBtn" class="px-3 py-1 text-gray-600 hover:bg-gray-100 rounded" title="מהר יותר"><i class="fas fa-rabbit"></i></button>
+                </div>
+            </div>
+
+            <!-- Student Recording Controls -->
+            <div class="bg-green-50 rounded-xl p-4 mb-6 flex flex-wrap gap-4 items-center justify-center border border-green-100">
+                <div class="text-center w-full md:w-auto font-semibold text-green-800 mb-2 md:mb-0">הקלטת תלמיד:</div>
+                <button id="recordBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center transition shadow-md">
+                    <i class="fas fa-microphone ml-2"></i> התחל הקלטה
+                </button>
+                <button id="stopRecordBtn" class="bg-gray-500 text-white px-4 py-2 rounded-lg flex items-center transition shadow-md opacity-50 cursor-not-allowed" disabled>
+                    <i class="fas fa-stop-circle ml-2"></i> עצור
+                </button>
+                <button id="playRecordBtn" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center transition shadow-md hidden">
+                    <i class="fas fa-volume-up ml-2"></i> השמע הקלטה
+                </button>
+                <span id="recordingIndicator" class="text-red-500 font-bold animate-pulse hidden"><i class="fas fa-circle text-xs ml-1"></i>מקליט...</span>
+                <audio id="studentAudioPlayer" class="hidden"></audio>
+            </div>
+
+            <!-- The Text Content -->
+            <div id="textContent" class="text-lg leading-relaxed text-gray-700 space-y-4">
+                <!-- Text populated by JS -->
+            </div>
+        </section>
+
+        <!-- Multiple Choice Section -->
+        <section class="bg-white rounded-2xl shadow-xl p-6 md:p-8 border-t-4 border-yellow-500">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6"><i class="fas fa-question-circle text-yellow-500 ml-2"></i>שאלות רב-ברירה</h2>
+            <div id="questionsContainer" class="space-y-8">
+                <!-- Questions populated by JS -->
+            </div>
+        </section>
+
+        <!-- Matching Game Section -->
+        <section class="bg-white rounded-2xl shadow-xl p-6 md:p-8 border-t-4 border-green-500">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2"><i class="fas fa-link text-green-500 ml-2"></i>התאם מושג להגדרה</h2>
+            <p class="text-gray-600 mb-6">לחץ על מושג בימין ואז על ההגדרה המתאימה לו בשמאל.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Terms Column -->
+                <div id="termsCol" class="space-y-3 flex flex-col"></div>
+                <!-- Definitions Column -->
+                <div id="defsCol" class="space-y-3 flex flex-col"></div>
+            </div>
+        </section>
+
+        <!-- Memory Game Section -->
+        <section class="bg-white rounded-2xl shadow-xl p-6 md:p-8 border-t-4 border-purple-500">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2"><i class="fas fa-brain text-purple-500 ml-2"></i>משחק זיכרון</h2>
+            <p class="text-gray-600 mb-6">מצא את כל הזוגות התואמים מתוך המושגים בטקסט.</p>
+            <div class="flex justify-center mb-4">
+                <button id="resetMemoryBtn" class="bg-purple-100 text-purple-700 hover:bg-purple-200 px-4 py-2 rounded-lg font-semibold transition">
+                    <i class="fas fa-redo ml-1"></i> התחל מחדש
+                </button>
+            </div>
+            
+            <div id="memoryBoard" class="grid grid-cols-3 md:grid-cols-4 gap-4">
+                <!-- Cards populated by JS -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">הודעה</div>
+
+    <script>
+        // --- 1. Data Structures ---
+        
+        // Text Chunks with strictly vowelized data for Google TTS to ensure accurate reading.
+        // Array of sentences. 'raw' is for display (unless toggle is on), 'nikud' is for TTS API.
+        const textData = [
+            { id: 0, raw: "שיטפון הוא זרם מים חזק, בדרך כלל פתאומי, שמציף שטחים נמוכים.", nikud: "שִׁיטָפוֹן הוּא זֶרֶם מַיִם חָזָק, בְּדֶרֶךְ כְּלָל פִּתְאוֹמִי, שֶׁמֵּצִיף שְׁטָחִים נְמוּכִים." },
+            { id: 1, raw: "בתקופה האחרונה שומעים יותר ויותר על שיטפונות במקומות שונים בעולם,", nikud: "בַּתְּקוּפָה הָאַחֲרוֹנָה שׁוֹמְעִים יוֹתֵר וְיוֹתֵר עַל שִׁיטְפוֹנוֹת בִּמְקוֹמוֹת שׁוֹנִים בָּעוֹלָם," },
+            { id: 2, raw: "על אנשים שנלכדו במי השיטפונות, על בתים שהוצפו, על רחובות וכבישים שנהרסו וגם על פעולות הצלה מיוחדות.", nikud: "עַל אֲנָשִׁים שֶׁנִּלְכְּדוּ בְּמֵי הַשִּׁיטְפוֹנוֹת, עַל בָּתִּים שֶׁהוּצְפוּ, עַל רְחוֹבוֹת וּכְבִישִׁים שֶׁנֶּהֶרְסוּ וְגַם עַל פְּעוּלוֹת הַצָּלָה מְיוּחָדוֹת." },
+            { id: 3, raw: "יש שיטפונות שבהם מים מן הים מציפים את החופים,", nikud: "יֵשׁ שִׁיטְפוֹנוֹת שֶׁבָּהֶם מַיִם מִן הַיָּם מְצִיפִים אֶת הַחוֹפִים," },
+            { id: 4, raw: "ויש שיטפונות שבהם הנהרות והנחלים עולים על גדותיהם.", nikud: "וְיֵשׁ שִׁיטְפוֹנוֹת שֶׁבָּהֶם הַנְּהָרוֹת וְהַנְּחָלִים עוֹלִים עַל גְּדוֹתֵיהֶם." },
+            { id: 5, raw: "כיצד נוצרים שיטפונות בנהרות ובנחלים?", nikud: "כֵּיצַד נוֹצָרִים שִׁיטְפוֹנוֹת בִּנְהָרוֹת וּבִנְחָלִים?" },
+            { id: 6, raw: "שיטפון מתרחש כאשר מים רבים מהרגיל זורמים אליהם, וגובה המים עולה.", nikud: "שִׁיטָפוֹן מִתְרַחֵשׁ כַּאֲשֶׁר מַיִם רַבִּים מֵהָרָגִיל זוֹרְמִים אֲלֵיהֶם, וְגוֹבַהּ הַמַּיִם עוֹלֶה." },
+            { id: 7, raw: "במקומות שונים בעולם, באזורים הרריים וקרים, השיטפונות מתרחשים בעיקר בעונת האביב.", nikud: "בִּמְקוֹמוֹת שׁוֹנִים בָּעוֹלָם, בַּאֲזוֹרִים הֲרָרִיִּים וְקָרִים, הַשִּׁיטְפוֹנוֹת מִתְרַחֲשִׁים בְּעִיקָּר בְּעוֹנַת הָאָבִיב." },
+            { id: 8, raw: "כיצד זה קורה? השלג והקרח שהצטברו בחורף על פסגות ההרים, מפשירים באביב והופכים למים.", nikud: "כֵּיצַד זֶה קוֹרֶה? הַשֶּׁלֶג וְהַקֶּרַח שֶׁהִצְטַבְּרוּ בַּחוֹרֶף עַל פִּסְגּוֹת הֶהָרִים, מַפְשִׁירִים בָּאָבִיב וְהוֹפְכִים לְמַיִם." },
+            { id: 9, raw: "במצב זה, שבו הכול מתרחש במהירות, אין כמעט זמן להזהיר את התושבים.", nikud: "בְּמַצָּב זֶה, שֶׁבּוֹ הַכֹּל מִתְרַחֵשׁ בִּמְהִירוּת, אֵין כִּמְעַט זְמַן לְהַזְהִיר אֶת הַתּוֹשָׁבִים." },
+            { id: 10, raw: "כדי למנוע הצפות, נוהגים לבנות סכרים.", nikud: "כְּדֵי לִמְנוֹעַ הֲצָפוֹת, נוֹהֲגִים לִבְנוֹת סְכָרִים." },
+            { id: 11, raw: "סכר הוא חומה הבנויה לרוחב נהר או נחל שחוסמת את זרם המים.", nikud: "סֶכֶר הוּא חוֹמָה הַבְּנוּיָה לְרוֹחַב נָהָר אוֹ נַחַל שֶׁחוֹסֶמֶת אֶת זֶרֶם הַמַּיִם." },
+            { id: 12, raw: "בישראל מתרחשים שיטפונות בעונת החורף - במדבר יהודה, בנגב ובערבה.", nikud: "בְּיִשְׂרָאֵל מִתְרַחֲשִׁים שִׁיטְפוֹנוֹת בְּעוֹנַת הַחוֹרֶף - בְּמִדְבַּר יְהוּדָה, בַּנֶּגֶב וּבָעֲרָבָה." },
+            { id: 13, raw: "זכרו: בזמן שיטפון, גם מקום שנראה כעת יבש לחלוטין, הופך תוך שניות לנחל עם עצמת זרימה אדירה - יפהפייה אך מסוכנת!", nikud: "זִכְרוּ: בִּזְמַן שִׁיטָפוֹן, גַּם מָקוֹם שֶׁנִּרְאֶה כָּעֵת יָבֵשׁ לַחֲלוּטִין, הוֹפֵךְ תּוֹךְ שְׁנִיּוֹת לְנַחַל עִם עָצְמַת זְרִימָה אַדִּירָה - יְפֵהְפִיָּה אַךְ מְסוּכֶּנֶת!" }
+        ];
+
+        const questions = [
+            { q: "מהו שיטפון על פי הטקסט?", options: ["גשם חזק שיורד בקיץ", "זרם מים חזק ופתאומי שמציף שטחים נמוכים", "רוח חזקה שגורמת לגלים בים", "שלג שנמס לאט לאט על ההרים"], answer: 1 },
+            { q: "מתי מתרחשים שיטפונות באזורים הרריים וקרים?", options: ["בסתיו", "בקיץ", "בחורף", "באביב"], answer: 3 },
+            { q: "מדוע מתרחשים שיטפונות באביב באזורים קרים?", options: ["כי אז מתחיל לרדת שלג", "כי יורד יותר גשם מאשר בחורף", "כי השלגים והקרח מפשירים והופכים למים", "כי האדמה יבשה מאוד"], answer: 2 },
+            { q: "כיצד יכולים אנשים להתגונן מפני שיטפונות בקרבת נהרות?", options: ["לבנות בתים במקומות נמוכים", "לבנות את הבתים על עמודים או חומרים חזקים", "לעבור לגור במדבר", "לשתות את מי הנהר"], answer: 1 },
+            { q: "מהו סכר?", options: ["ספינה גדולה", "גשר מעל נהר", "חומה לרוחב נהר שחוסמת את המים", "סוג של דג שחי בנהרות"], answer: 2 },
+            { q: "מה עושים עם המים שנאגרים בבריכת הסכר?", options: ["משתמשים בהם להשקיה ולשתייה בעונות יבשות", "שופכים אותם לים", "מחממים אותם ליצירת חשמל", "מייצרים מהם קרח"], answer: 0 },
+            { q: "באילו אזורים מתרחשים שיטפונות בישראל בעונת החורף?", options: ["בגולן ובגליל", "במישור החוף", "במדבר יהודה, בנגב ובערבה", "בירושלים ותל אביב"], answer: 2 },
+            { q: "מדוע קשה לתכנן מראש טיולי שיטפונות בארץ?", options: ["כי חם מדי במדבר", "כי יש סכרים שעוצרים את המים", "כי התופעה פתאומית וחולפת במהירות", "כי אין מספיק מדריכים"], answer: 2 },
+            { q: "מה יש לעשות בעת היתקלות בשיטפון בזמן נסיעה?", options: ["להמשיך בנסיעה מהר יותר", "להרחיק את המכונית מהאזור המוצף ולהודיע למשטרה", "לצאת מהרכב ולשחות", "לחכות בתוך הרכב עד שהמים ירדו"], answer: 1 },
+            { q: "מדוע המילה 'זכרו' מודגשת בסוף הטקסט (בכללי הזהירות)?", options: ["כדי להדגיש את האזהרה מפני הסכנה", "כדי לגוון את סוגי האותיות", "כדי שיהיה קל לקרוא", "כדי למשוך תיירים"], answer: 0 }
+        ];
+
+        const matchTerms = ["שיטפון", "סכר", "הפשרת שלגים", "בריכה", "נחל אכזב (יבש)"];
+        const matchDefs = [
+            "זרם מים חזק, בדרך כלל פתאומי, המציף שטחים נמוכים.",
+            "חומה הבנויה לרוחב נהר או נחל שחוסמת את הזרם.",
+            "התהליך שגורם לשיטפונות באביב באזורים קרים והרריים.",
+            "מקום שבו נאגרים מים לשימוש בעונות יבשות להשקיה.",
+            "ערוץ שבדרך כלל אין בו מים, אך מתמלא במהירות בשיטפון."
+        ];
+
+        const memoryPairs = [
+            { term: "שיטפון", def: "זרם מים חזק, פתאומי, שמציף שטחים נמוכים" },
+            { term: "סכר", def: "חומה הבנויה לרוחב נהר שחוסמת את המים" },
+            { term: "הפשרת שלגים", def: "שלג וקרח שהופכים למים באביב" },
+            { term: "ברכה", def: "מקום שבו מים נאגרים לשתייה והשקיה" },
+            { term: "מדבר יהודה והנגב", def: "אזורים שבהם מתרחשים שיטפונות בארץ" },
+            { term: "נזקי שיטפונות", def: "אנשים נלכדים, בתים מוצפים וכבישים נהרסים" }
+        ];
+
+        // --- 2. Global State ---
+        let showNikud = false;
+        
+        // Audio State
+        let currentAudioObj = null;
+        let playbackRate = 1.0;
+        let isReading = false;
+        let currentReadingIndex = 0;
+
+        // Recording State
+        let mediaRecorder;
+        let audioChunks = [];
+        let studentAudioBlob;
+        let studentAudioUrl;
+
+        // --- STREAMING_CHUNK:Utility Functions ---
+        function showToast(message, type = 'error') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast show ${type === 'success' ? 'success' : ''}`;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function triggerConfetti() {
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 },
+                zIndex: 100
+            });
+        }
+
+        // --- STREAMING_CHUNK:Text & TTS Engine ---
+        function renderText() {
+            const container = document.getElementById('textContent');
+            container.innerHTML = '';
+            
+            // Group sentences into paragraphs roughly
+            let p = document.createElement('p');
+            textData.forEach((chunk, index) => {
+                const span = document.createElement('span');
+                span.id = `chunk-${index}`;
+                span.className = 'px-1 py-0.5 rounded transition-colors';
+                span.textContent = showNikud ? chunk.nikud : chunk.raw;
+                span.dataset.index = index;
+                p.appendChild(span);
+                p.appendChild(document.createTextNode(' '));
+
+                // Break paragraphs artificially for aesthetics
+                if(index === 2 || index === 6 || index === 11 || index === 12) {
+                    container.appendChild(p);
+                    p = document.createElement('p');
+                }
+            });
+            container.appendChild(p);
+        }
+
+        document.getElementById('toggleNikudBtn').addEventListener('click', () => {
+            showNikud = !showNikud;
+            const btn = document.getElementById('toggleNikudBtn');
+            btn.innerHTML = showNikud ? '<i class="fas fa-font ml-1"></i> הסתר ניקוד' : '<i class="fas fa-font ml-1"></i> הצג ניקוד';
+            btn.classList.toggle('bg-indigo-600', showNikud);
+            btn.classList.toggle('text-white', showNikud);
+            btn.classList.toggle('bg-indigo-100', !showNikud);
+            btn.classList.toggle('text-indigo-700', !showNikud);
+            renderText();
+        });
+
+        // The exact TTS implementation as requested (Google Translate API + Nikud).
+        function playTTSChunk(index) {
+            if (index >= textData.length) {
+                stopReading();
+                return;
+            }
+
+            // Highlight current chunk
+            document.querySelectorAll('#textContent span').forEach(el => el.classList.remove('reading-highlight'));
+            const activeSpan = document.getElementById(`chunk-${index}`);
+            if (activeSpan) {
+                activeSpan.classList.add('reading-highlight');
+                // Scroll into view nicely
+                activeSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            // Must use fully vowelized word/sentence for API to ensure correct Hebrew pronunciation
+            const textToRead = textData[index].nikud;
+            const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=he&client=tw-ob&q=${encodeURIComponent(textToRead)}`;
+            
+            currentAudioObj = new Audio(url);
+            currentAudioObj.playbackRate = playbackRate;
+            
+            currentAudioObj.play().then(() => {
+                isReading = true;
+                currentReadingIndex = index;
+            }).catch(error => {
+                console.error("TTS Audio error:", error);
+                showToast("שגיאה בהשמעת הקול. ייתכן שחוסם פרסומות מפריע או שגיאת רשת.");
+                stopReading();
+            });
+
+            currentAudioObj.onended = () => {
+                if (isReading) {
+                    playTTSChunk(index + 1);
+                }
+            };
+        }
+
+        function stopReading() {
+            isReading = false;
+            if (currentAudioObj) {
+                currentAudioObj.pause();
+                currentAudioObj = null;
+            }
+            document.querySelectorAll('#textContent span').forEach(el => el.classList.remove('reading-highlight'));
+            
+            document.getElementById('playAudioBtn').classList.remove('hidden');
+            document.getElementById('stopAudioBtn').classList.add('hidden');
+        }
+
+        document.getElementById('playAudioBtn').addEventListener('click', () => {
+            document.getElementById('playAudioBtn').classList.add('hidden');
+            document.getElementById('stopAudioBtn').classList.remove('hidden');
+            playTTSChunk(currentReadingIndex >= textData.length ? 0 : currentReadingIndex);
+        });
+
+        document.getElementById('stopAudioBtn').addEventListener('click', () => {
+            stopReading();
+        });
+
+        document.getElementById('fasterBtn').addEventListener('click', () => {
+            if (playbackRate < 2.0) playbackRate += 0.25;
+            updateSpeedDisplay();
+        });
+
+        document.getElementById('slowerBtn').addEventListener('click', () => {
+            if (playbackRate > 0.5) playbackRate -= 0.25;
+            updateSpeedDisplay();
+        });
+
+        function updateSpeedDisplay() {
+            document.getElementById('speedDisplay').textContent = playbackRate.toFixed(2) + 'x';
+            if (currentAudioObj) currentAudioObj.playbackRate = playbackRate;
+        }
+
+        // --- STREAMING_CHUNK:Recording Logic ---
+        const recordBtn = document.getElementById('recordBtn');
+        const stopRecordBtn = document.getElementById('stopRecordBtn');
+        const playRecordBtn = document.getElementById('playRecordBtn');
+        const recordingIndicator = document.getElementById('recordingIndicator');
+        const studentPlayer = document.getElementById('studentAudioPlayer');
+
+        recordBtn.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    studentAudioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    studentAudioUrl = URL.createObjectURL(studentAudioBlob);
+                    studentPlayer.src = studentAudioUrl;
+                    playRecordBtn.classList.remove('hidden');
+                    
+                    // Stop tracks to release mic
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
+                recordBtn.disabled = true;
+                recordBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                stopRecordBtn.disabled = false;
+                stopRecordBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                stopRecordBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                recordingIndicator.classList.remove('hidden');
+                
+            } catch (err) {
+                console.error(err);
+                showToast("אין גישה למיקרופון. אנא אשר גישה בדפדפן.");
+            }
+        });
+
+        stopRecordBtn.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                recordBtn.disabled = false;
+                recordBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                stopRecordBtn.disabled = true;
+                stopRecordBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                stopRecordBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                recordingIndicator.classList.add('hidden');
+            }
+        });
+
+        playRecordBtn.addEventListener('click', () => {
+            if (studentAudioUrl) {
+                studentPlayer.play();
+            }
+        });
+
+        // --- STREAMING_CHUNK:Multiple Choice Quiz Logic ---
+        function renderQuestions() {
+            const container = document.getElementById('questionsContainer');
+            questions.forEach((q, qIndex) => {
+                const qDiv = document.createElement('div');
+                qDiv.className = 'bg-gray-50 rounded-xl p-5 border border-gray-200';
+                
+                const title = document.createElement('h3');
+                title.className = 'text-lg font-bold text-gray-800 mb-4';
+                title.textContent = `${qIndex + 1}. ${q.q}`;
+                qDiv.appendChild(title);
+
+                const optsGrid = document.createElement('div');
+                optsGrid.className = 'grid grid-cols-1 md:grid-cols-2 gap-3';
+
+                q.options.forEach((opt, oIndex) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'text-right px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition shadow-sm';
+                    btn.textContent = opt;
+                    
+                    btn.addEventListener('click', () => {
+                        // Disable all buttons in this question
+                        Array.from(optsGrid.children).forEach(b => {
+                            b.disabled = true;
+                            b.classList.remove('hover:bg-blue-50', 'hover:border-blue-300');
+                        });
+
+                        if (oIndex === q.answer) {
+                            btn.classList.add('bg-green-100', 'border-green-500', 'text-green-800', 'font-bold');
+                            triggerConfetti();
+                            showToast("תשובה נכונה! כל הכבוד!", "success");
+                        } else {
+                            btn.classList.add('bg-red-100', 'border-red-500', 'text-red-800', 'wrong-shake');
+                            // Highlight correct answer
+                            optsGrid.children[q.answer].classList.add('bg-green-100', 'border-green-500', 'text-green-800');
+                            showToast("טעות, לא נורא. שים לב לתשובה הנכונה.");
+                        }
+                    });
+                    
+                    optsGrid.appendChild(btn);
+                });
+
+                qDiv.appendChild(optsGrid);
+                container.appendChild(qDiv);
+            });
+        }
+
+        // --- STREAMING_CHUNK:Matching Game Logic ---
+        let selectedTerm = null;
+        let selectedDef = null;
+        let matchCount = 0;
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function renderMatchingGame() {
+            const termsCol = document.getElementById('termsCol');
+            const defsCol = document.getElementById('defsCol');
+            
+            // Create paired objects, shuffle them separately
+            let terms = matchTerms.map((t, i) => ({ text: t, id: i }));
+            let defs = matchDefs.map((d, i) => ({ text: d, id: i }));
+            
+            terms = shuffle(terms);
+            defs = shuffle(defs);
+
+            terms.forEach(t => {
+                const btn = document.createElement('button');
+                btn.className = 'match-btn w-full text-right bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 text-blue-900 font-bold p-4 rounded-xl shadow-sm';
+                btn.textContent = t.text;
+                btn.dataset.id = t.id;
+                btn.dataset.type = 'term';
+                btn.addEventListener('click', handleMatchClick);
+                termsCol.appendChild(btn);
+            });
+
+            defs.forEach(d => {
+                const btn = document.createElement('button');
+                btn.className = 'match-btn w-full text-right bg-gray-50 hover:bg-gray-100 border-2 border-gray-200 text-gray-800 p-4 rounded-xl shadow-sm';
+                btn.textContent = d.text;
+                btn.dataset.id = d.id;
+                btn.dataset.type = 'def';
+                btn.addEventListener('click', handleMatchClick);
+                defsCol.appendChild(btn);
+            });
+        }
+
+        function handleMatchClick(e) {
+            const btn = e.target;
+            if (btn.classList.contains('matched')) return;
+
+            const type = btn.dataset.type;
+
+            // Handle selection visually
+            if (type === 'term') {
+                if (selectedTerm) selectedTerm.classList.remove('selected');
+                selectedTerm = btn;
+            } else {
+                if (selectedDef) selectedDef.classList.remove('selected');
+                selectedDef = btn;
+            }
+            btn.classList.add('selected');
+
+            // Check match
+            if (selectedTerm && selectedDef) {
+                if (selectedTerm.dataset.id === selectedDef.dataset.id) {
+                    // Match!
+                    selectedTerm.classList.remove('selected');
+                    selectedDef.classList.remove('selected');
+                    selectedTerm.classList.add('matched');
+                    selectedDef.classList.add('matched');
+                    triggerConfetti();
+                    showToast("התאמה מושלמת!", "success");
+                    matchCount++;
+                    
+                    if (matchCount === matchTerms.length) {
+                        setTimeout(() => triggerConfetti(), 500);
+                        setTimeout(() => triggerConfetti(), 1000);
+                    }
+                } else {
+                    // No match
+                    selectedTerm.classList.add('wrong-shake');
+                    selectedDef.classList.add('wrong-shake');
+                    showToast("התאמה שגויה, נסה שוב.");
+                    
+                    setTimeout(() => {
+                        if(selectedTerm) { selectedTerm.classList.remove('selected', 'wrong-shake'); selectedTerm = null; }
+                        if(selectedDef) { selectedDef.classList.remove('selected', 'wrong-shake'); selectedDef = null; }
+                    }, 600);
+                    return; // Prevent clearing instantly so animation plays
+                }
+                selectedTerm = null;
+                selectedDef = null;
+            }
+        }
+
+        // --- STREAMING_CHUNK:Memory Game Logic ---
+        let memoryCards = [];
+        let flippedCards = [];
+        let matchedMemoryCount = 0;
+
+        function initMemoryGame() {
+            const board = document.getElementById('memoryBoard');
+            board.innerHTML = '';
+            flippedCards = [];
+            matchedMemoryCount = 0;
+            
+            // Create paired objects for the deck
+            let deck = [];
+            memoryPairs.forEach((pair, index) => {
+                deck.push({ text: pair.term, matchId: index, type: 'term' });
+                deck.push({ text: pair.def, matchId: index, type: 'def' });
+            });
+            
+            deck = shuffle(deck);
+
+            deck.forEach((item) => {
+                const card = document.createElement('div');
+                card.className = 'memory-card relative rounded-xl';
+                card.dataset.matchId = item.matchId;
+                
+                card.innerHTML = `
+                    <div class="memory-card-inner">
+                        <div class="memory-card-front"><i class="fas fa-question text-blue-200"></i></div>
+                        <div class="memory-card-back text-xs md:text-sm leading-tight overflow-hidden flex items-center justify-center text-center p-2">${item.text}</div>
+                    </div>
+                `;
+                
+                card.addEventListener('click', () => flipCard(card));
+                board.appendChild(card);
+            });
+        }
+
+        function flipCard(card) {
+            if (flippedCards.length >= 2 || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+            card.classList.add('flipped');
+            flippedCards.push(card);
+
+            if (flippedCards.length === 2) {
+                checkMemoryMatch();
+            }
+        }
+
+        function checkMemoryMatch() {
+            const [card1, card2] = flippedCards;
+            
+            if (card1.dataset.matchId === card2.dataset.matchId) {
+                // Match
+                setTimeout(() => {
+                    card1.classList.add('matched');
+                    card2.classList.add('matched');
+                    triggerConfetti();
+                    matchedMemoryCount += 2;
+                    if (matchedMemoryCount === memoryPairs.length * 2) {
+                        showToast("כל הכבוד! סיימת את משחק הזיכרון!", "success");
+                    }
+                    flippedCards = [];
+                }, 500);
+            } else {
+                // No Match
+                setTimeout(() => {
+                    card1.classList.remove('flipped');
+                    card2.classList.remove('flipped');
+                    flippedCards = [];
+                }, 1000);
+            }
+        }
+
+        document.getElementById('resetMemoryBtn').addEventListener('click', initMemoryGame);
+
+        // --- STREAMING_CHUNK:Bootstrap Application ---
+        window.addEventListener('DOMContentLoaded', () => {
+            renderText();
+            renderQuestions();
+            renderMatchingGame();
+            initMemoryGame();
+        });
+
+    </script>
+</body>
+</html>
